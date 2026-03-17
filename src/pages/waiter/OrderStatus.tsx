@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fetchInvoices, fetchNotifications, markNotificationRead, fetchProducts, fetchCategories, updateInvoiceStatus } from "@/api/index.js";
 import { getCurrentUser } from "@/auth/auth";
-import { useOrdersWebSocket } from "@/hooks/useOrdersWebSocket";
+import { useOrdersPolling } from "@/hooks/useOrdersPolling";
 import { formatDistanceToNow } from "date-fns";
 
 type MainTab = "mine" | "all";
@@ -51,22 +51,12 @@ export default function OrderStatus() {
   }, [loadData]);
 
 
-  // WebSocket: auto-refresh when invoice created or status updated (e.g. kitchen marks ready)
-  useOrdersWebSocket(
-    useCallback(
-      (data) => {
-        if (data.type === "invoice_updated" && data.status === "READY") {
-          // Order is ready
-          toast.success("A kitchen order is ready for pickup!", {
-            icon: <ChefHat className="h-5 w-5 text-success" />
-          });
-          loadData();
-        } else if (data.type === "invoice_created" || data.type === "invoice_updated") {
-          loadData();
-        }
-      },
-      [loadData]
-    )
+  // Polling: background refresh for order status updates
+  useOrdersPolling(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+    15000 // 15 seconds for waiter status
   );
 
   // Filtering logic

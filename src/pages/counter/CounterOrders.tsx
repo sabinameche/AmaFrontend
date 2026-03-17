@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import { getCurrentUser, logout } from "@/auth/auth";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { X } from "lucide-react";
-import { useOrdersWebSocket } from "@/hooks/useOrdersWebSocket";
+import { useOrdersPolling } from "@/hooks/useOrdersPolling";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -138,24 +138,12 @@ export default function CounterOrders() {
         }
     }, []);
 
-    // WebSocket: auto-refresh when invoice created or status updated
-    useOrdersWebSocket(
-        useCallback(
-            (data) => {
-                if (data.type === "invoice_created") {
-                    // New order - play sound
-                    playNotificationSound();
-                    loadInvoices();
-                } else if (data.type === "invoice_updated" && data.status === "READY") {
-                    // Order ready - play sound
-                    playNotificationSound();
-                    loadInvoices();
-                } else if (data.type === "invoice_updated") {
-                    loadInvoices();
-                }
-            },
-            [loadInvoices, playNotificationSound]
-        )
+    // Polling: background refresh for new orders
+    useOrdersPolling(
+        useCallback(() => {
+            loadInvoices();
+        }, [loadInvoices]),
+        12000 // 12 seconds for counter
     );
 
     const handlePayOpen = (order: any) => {
