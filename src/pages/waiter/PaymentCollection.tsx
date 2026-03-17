@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { fetchInvoices, addPayment } from "@/api/index.js";
-import { useOrdersWebSocket } from "@/hooks/useOrdersWebSocket";
+import { useOrdersPolling } from "@/hooks/useOrdersPolling";
 
 export default function PaymentCollection() {
   const navigate = useNavigate();
@@ -61,20 +61,12 @@ export default function PaymentCollection() {
     }
   }, []);
 
-  // WebSocket: auto-refresh when invoice created or status updated
-  useOrdersWebSocket(
-    useCallback(
-      (data) => {
-        if (data.type === "invoice_updated" && data.status === "READY") {
-          // Order ready - play notification sound
-          playNotificationSound();
-          loadInvoices();
-        } else if (data.type === "invoice_created" || data.type === "invoice_updated") {
-          loadInvoices();
-        }
-      },
-      [loadInvoices, playNotificationSound]
-    )
+  // Polling: background refresh for pending payments
+  useOrdersPolling(
+    useCallback(() => {
+      loadInvoices();
+    }, [loadInvoices]),
+    20000 // 20 seconds for payment collection
   );
 
   const handlePaymentClick = (order: any) => {

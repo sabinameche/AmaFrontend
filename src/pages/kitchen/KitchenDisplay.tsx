@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderCard } from "@/components/kitchen/OrderCard";
 import { branches } from "@/lib/mockData";
@@ -32,7 +32,7 @@ import { toast } from "sonner";
 import { getCurrentUser, logout } from "../../auth/auth";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { fetchInvoices, fetchProducts, fetchCategories, updateInvoiceStatus, fetchTables } from "../../api/index.js";
-import { WS_BASE_URL } from "../../api/config";
+import { useOrdersPolling } from "@/hooks/useOrdersPolling";
 
 export default function KitchenDisplay() {
   const navigate = useNavigate();
@@ -59,49 +59,13 @@ export default function KitchenDisplay() {
   }, []);
 
 
-  // WebSocket: listen for new invoices and refresh kitchen data
-  useEffect(() => {
-    const socket = new WebSocket(WS_BASE_URL + "/ws/kitchen/");
-
-    socket.onopen = () => {
-      setSocketConnected(true);
-      console.log("[Kitchen WS] Connected");
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log("[Kitchen WS] Message:", data);
-        if (data.type === "invoice_created") {
-          // New order placed - show toast and refresh
-          toast.success("New Order Received!", {
-            description: "A new order has been placed",
-            icon: <Bell className="h-5 w-5 text-primary" />,
-          });
-          loadData();
-        } else if (data.type === "invoice_updated") {
-          // Order updated - just refresh (no sound for updates in kitchen)
-          loadData();
-        }
-      } catch {
-        // Ignore malformed messages
-      }
-    };
-
-    socket.onclose = () => {
-      setSocketConnected(false);
-      console.log("[Kitchen WS] Disconnected");
-    };
-
-    socket.onerror = (err) => {
-      setSocketConnected(false);
-      console.error("[Kitchen WS] Error:", err);
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, []);
+  // Polling: background refresh for new orders
+  useOrdersPolling(
+    useCallback(() => {
+      loadData();
+    }, []),
+    10000 // 10 seconds interval
+  );
 
   const loadData = async () => {
     setLoading(true);
